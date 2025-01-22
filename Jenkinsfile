@@ -3,10 +3,21 @@ node {
 
         stage('Build') {
             try {
-                sh 'mvn -B -DskipTests clean package'
+                sh 'mvn -X -B -DskipTests clean package'
             } catch (Exception e) {
                 echo "Build failed: ${e.getMessage()}"
                 error "Stopping pipeline due to build failure."
+            }
+        }
+
+        stage('Test') {
+            try {
+                sh 'mvn test'
+            } catch (Exception e) {
+                echo "Tests failed: ${e.getMessage()}"
+                error "Tests encountered failures."
+            } finally {
+                junit 'target/surefire-reports/*.xml'
             }
         }
     }
