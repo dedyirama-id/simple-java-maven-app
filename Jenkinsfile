@@ -24,5 +24,22 @@ node {
                 junit 'target/surefire-reports/*.xml'
             }
         }
+
+        stage('Manual Approval') {
+            input message: 'Lanjutkan ke tahap Deploy?',
+                ok: 'Proceed'
+        }
+
+        stage('Deploy') {
+            try {
+                sh './jenkins/scripts/deliver.sh'
+
+                echo 'Pausing for 1 minute after deployment...'
+                sleep time: 1, unit: 'MINUTES'
+            } catch (e) {
+                echo "Delivery failed: ${e.message()}"
+                error 'Stopping pipeline due to delivery failure.'
+            }
+        }
     }
 }
