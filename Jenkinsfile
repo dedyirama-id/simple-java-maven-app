@@ -54,6 +54,8 @@ node {
                     """
 
                     echo 'Application deployed and executed successfully on EC2'
+
+                    sleep(time: 1, unit: 'MINUTES')
                 } catch (Exception e) {
                     echo "Deployment failed: ${e.message}"
                     error 'Stopping pipeline due to deployment failure.'
