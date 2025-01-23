@@ -34,7 +34,6 @@ node {
             try {
                 sh './jenkins/scripts/deliver.sh'
 
-                echo 'Pausing for 1 minute after deployment...'
                 sleep time: 1, unit: 'MINUTES'
             } catch (e) {
                 echo "Delivery failed: ${e.message()}"
