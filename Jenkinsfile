@@ -1,10 +1,8 @@
 node {
-    def remote = [:] // Konfigurasi remote SSH sebagai objek global
+    def remote = [:]
     remote.name = 'EC2 Deployment'
-    remote.host = '54.169.224.31'
+    remote.host = env.DICODING_SUBMISSION_EC2_IP
     remote.allowAnyHosts = true
-
-    def ec2TargetDir = '/home/ec2-user/'
 
     docker.image('maven:3.9.9-eclipse-temurin-23-alpine').inside('--user root') {
         stage('Build') {
@@ -33,27 +31,24 @@ node {
             input message: 'Lanjutkan ke tahap Deploy?',
                 ok: 'Proceed'
         }
+    }
 
+    docker.image('docker:latest').inside('--privileged -v /var/run/docker.sock:/var/run/docker.sock --user root') {
         stage('Deploy') {
+            docker.withRegistry('https://registry.hub.docker.com', 'docker-hub') {
+                docker.build('dedyirama/simple-java-maven').push('latest')
+            }
             withCredentials([sshUserPrivateKey(credentialsId: 'dicoding-submission-ssh', keyFileVariable: 'identity', usernameVariable: 'userName')]) {
                 remote.user = userName
                 remote.identityFile = identity
 
                 try {
-                    def name = sh(script: 'mvn -q -DforceStdout help:evaluate -Dexpression=project.name', returnStdout: true).trim()
-                    def version = sh(script: 'mvn -q -DforceStdout help:evaluate -Dexpression=project.version', returnStdout: true).trim()
-
-                    echo "Deploying application ${name}-${version}.jar to EC2"
-
-                    // Transfer file JAR to EC2
-                    sshPut remote: remote, from: "target/${name}-${version}.jar", into: ec2TargetDir
-
-                    // Run the application on EC2
-                    sshCommand remote: remote, command: """
-                    java -jar ${ec2TargetDir}${name}-${version}.jar
-                    """
-
-                    echo 'Application deployed and executed successfully on EC2'
+                    sshCommand remote: remote, command: '''
+                            docker pull dedyirama/simple-java-maven:latest
+                            docker stop simple-java-maven || true
+                            docker rm simple-java-maven || true
+                            docker run -d --name simple-java-maven --network host --memory=512m --cpu-shares=512 dedyirama/simple-java-maven:latest
+                        '''
 
                     sleep(time: 1, unit: 'MINUTES')
                 } catch (Exception e) {
